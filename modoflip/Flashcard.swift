@@ -280,6 +280,11 @@ final class FlashcardStore: ObservableObject {
         allCards.append(card)
         recomputeStats()
         saveDeck()
+        // Ha az új kártya leckéje ki van választva, vagy nincs kiválasztott lecke, akkor újra kiválasztjuk a következő kártyát
+        if selectedLessons.isEmpty || selectedLessons.contains(card.lesson) {
+            resetCycle()
+            pickNext()
+        }
     }
 
     func updateCard(_ card: Flashcard, lesson: String, question: String, answer: String) {
@@ -416,6 +421,24 @@ final class FlashcardStore: ObservableObject {
             }
         }
         return fileName
+    }
+    
+    // Backup fájl másolása ideiglenes helyre megosztáshoz
+    func prepareBackupForSharing(_ url: URL) -> URL? {
+        // Átmásoljuk a fájlt egy ideiglenes helyre, ami elérhető a megosztáshoz
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
+        
+        // Töröljük a régi fájlt, ha létezik
+        try? FileManager.default.removeItem(at: tempURL)
+        
+        // Másoljuk a fájlt
+        do {
+            try FileManager.default.copyItem(at: url, to: tempURL)
+            return tempURL
+        } catch {
+            print("Error copying backup file: \(error)")
+            return nil
+        }
     }
 
     // Minta kártyák (ha nincs fájl)
@@ -1053,10 +1076,18 @@ struct DeckManagementView: View {
             }
         }
         .sheet(isPresented: $showingBackupShareSheet) {
-            if let url = backupToShare, FileManager.default.fileExists(atPath: url.path) {
-                ShareSheet(items: [url])
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+            if let originalURL = backupToShare, FileManager.default.fileExists(atPath: originalURL.path) {
+                if let shareableURL = store.prepareBackupForSharing(originalURL) {
+                    ShareSheet(items: [shareableURL])
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                } else {
+                    VStack {
+                        Text("Nem sikerült előkészíteni a fájlt megosztáshoz")
+                            .padding()
+                    }
+                    .presentationDetents([.height(200)])
+                }
             } else {
                 VStack {
                     Text("Nem sikerült megosztani a fájlt")
