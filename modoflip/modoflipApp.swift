@@ -9,9 +9,11 @@ import SwiftUI
 
 @main
 struct modoflipApp: App {
+    @StateObject var store = FlashcardStore()
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(store)
         }
     }
 }
